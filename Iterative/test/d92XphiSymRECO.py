@@ -47,12 +47,7 @@ process.TFileService = cms.Service("TFileService",
 # -------------------------  HBHEHF RECO  
 
 from EventFilter.HcalRawToDigi.HcalRawToDigi_cfi import *
-from RecoLocalCalo.HcalRecProducers.HcalHitReconstructor_hbhe_cfi import *
-from RecoLocalCalo.HcalRecProducers.HcalHitReconstructor_hf_cfi import *
 from RecoLocalCalo.HcalRecProducers.HBHEIsolatedNoiseReflagger_cfi import *
-process.newhbheprereco = hbheprereco.clone()
-process.newhfreco      = hfreco.clone()
-process.newhcalLocalRecoSequence = cms.Sequence(process.newhbheprereco+process.newhfreco)
 
 process.p = cms.Path(
  process.phaseHF

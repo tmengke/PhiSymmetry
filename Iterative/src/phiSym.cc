@@ -80,8 +80,6 @@ class phiSym : public edm::EDAnalyzer {
 
   std::string histfile;
   std::string textfile;
-  std::string gainfile;
-  std::string corrfile;
 
   TFile* mFile;
   FILE* tFile;
@@ -109,8 +107,6 @@ phiSym::phiSym(const edm::ParameterSet& iConfig)
   mhfreco  = consumes<HFRecHitCollection>(iConfig.getParameter<edm::InputTag>("hfreco"));//for RECO                                                                             
   mhbhereco = consumes<HBHERecHitCollection>(iConfig.getParameter<edm::InputTag>("hbhereco"));//for RECO                                                                        
   textfile = iConfig.getUntrackedParameter<string>("textFile");
-  gainfile = iConfig.getUntrackedParameter<string>("gainFile");
-  corrfile = iConfig.getUntrackedParameter<string>("corrFile");
 }
 
 phiSym::~phiSym()
