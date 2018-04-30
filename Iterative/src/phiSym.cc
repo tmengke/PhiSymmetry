@@ -1,6 +1,6 @@
 // include files                                                                                                                                                        
 #include <memory>
- 
+
 // user include files                                                                                                                                                   
 #include "FWCore/Framework/interface/Frameworkfwd.h"
 #include "FWCore/Framework/interface/EDAnalyzer.h"
@@ -28,6 +28,7 @@
 #include "DataFormats/DetId/interface/DetId.h"
 #include "DataFormats/HcalRecHit/interface/HcalRecHitCollections.h"
 #include "DataFormats/HcalDigi/interface/HcalDigiCollections.h"
+#include "DataFormats/METReco/interface/HcalPhase1FlagLabels.h"
 #include "DataFormats/HcalDetId/interface/HcalSubdetector.h"
 #include "DataFormats/Common/interface/TriggerResults.h"
 
@@ -147,7 +148,6 @@ return;
    // double e_RecHitHE[14][72], e_RecHitHBp15[72], e_RecHitHBm15[72];
    double e_RecHitHBp15[72]{}, e_RecHitHBm15[72]{};
 
-   printf("Starting :\n");
    edm::EventID eventId = iEvent.id();
    int runNumber = eventId.run ();
    int eventNumber = eventId.event ();
@@ -183,15 +183,14 @@ return;
    if (hf_hits_h.isValid()) {
      //cout<<"hf_hits...."<<endl;
      for (HFRecHitCollection::const_iterator hfhit=hf_hits->begin(); hfhit!=hf_hits->end(); hfhit++) {
+       if ((hfhit->flags()>>5)&1) continue;
+
        int ieta = hfhit->id().ieta();
        int iphi = hfhit->id().iphi();
        int depth = hfhit->id().depth();
-
-        double energy = hfhit->energy();
-
-	cout<<"hfhit->flags()"<<hfhit->flags()<<endl;
-	if(hfhit->flags()>=5)continue;
-
+       
+       double energy = hfhit->energy();
+              
        if (ieta>0) jeta = ieta-29;
        else jeta = 13-ieta-29;
        hen[jeta][(iphi-1)/2][depth-1]->Fill(energy, eventWeight );//****
@@ -223,13 +222,13 @@ return;
      hcounter->Fill(3);
 
      for (HBHERecHitCollection::const_iterator hbhehit=hbhe_hits->begin(); hbhehit!=hbhe_hits->end(); hbhehit++) {
+       if ((hbhehit->flags()>>27)&1) continue;
+
        int ieta = hbhehit->id().ieta();
        int iphi = hbhehit->id().iphi();
        int depth = hbhehit->id().depth();
        double energy = hbhehit->energy();
 
-       cout<<"hbhehit->flags()"<<hbhehit->flags()<<endl;	
-       if(hbhehit->flags()>=27)continue;
        int wnum = (iphi+1)/4;  // macro region (wedge)
        if(iphi==71||iphi==72)wnum=0;
 
@@ -425,7 +424,7 @@ void phiSym::beginJob() {
   }
 
 
-  std::cout<<std::endl<<"beginJob: histfile="<<histfile.c_str()<<"  textfile="<<textfile.c_str()<<std::endl;
+  //std::cout<<std::endl<<"beginJob: histfile="<<histfile.c_str()<<"  textfile="<<textfile.c_str()<<std::endl;
   return;
 
 }

@@ -46,26 +46,16 @@ process.load("RecoMET.METProducers.hcalnoiseinfoproducer_cfi")
 process.load("CommonTools.RecoAlgos.HBHENoiseFilter_cfi")
 process.load("CommonTools.RecoAlgos.HBHENoiseFilterResultProducer_cfi")
 
-# Configuration parameters (especially if a customization is needed):
-process.HBHENoiseFilterResultProducer = cms.EDProducer(
-    'HBHENoiseFilterResultProducer',
-    noiselabel = cms.InputTag('hcalnoise'),
-    useBunchSpacingProducer = cms.bool(True), # set to False to disable
-    minHPDHits = cms.int32(17),
-    minHPDNoOtherHits = cms.int32(10),
-    minZeros = cms.int32(9999), #disables the filter
-    IgnoreTS4TS5ifJetInLowBVRegion = cms.bool(False),  # set to True if
-    defaultDecision = cms.string("HBHENoiseFilterResultRun2Loose"), # set
-    minNumIsolatedNoiseChannels = cms.int32(10),
-    minIsolatedNoiseSumE = cms.double(50.0),
-    minIsolatedNoiseSumEt = cms.double(25.0)
+
+# To apply filter decision in CMSSW as an EDFilter
+process.hcalnoise.fillCaloTowers = cms.bool(False)
+process.hcalnoise.fillTracks = cms.bool(False)
+process.hcalnoise.recHitCollName = cms.string("hbheprereco")
+process.ApplyBaselineHBHENoiseFilter = cms.EDFilter("BooleanFlagFilter",
+   inputLabel = cms.InputTag("HBHENoiseFilterResultProducer","HBHENoiseFilterResult"),
+   reverseDecision = cms.bool(False)
 )
-# To apply filter decision in CMSSW as an EDFilter:
-process.ApplyBaselineHBHENoiseFilter = cms.EDFilter('BooleanFlagFilter',
-    inputLabel =
-cms.InputTag('HBHENoiseFilterResultProducer','HBHENoiseFilterResult'),
-    reverseDecision = cms.bool(False)
-)
+
 
 #----------------------------
 # Paths/Sequences Definitions
@@ -89,6 +79,6 @@ process.p = cms.Path(
 
 process.source = cms.Source ("PoolSource" ,
                              fileNames=cms.untracked.vstring(
-			     '/store/data/Run2018A/Commissioning/RAW/v1/000/315/252/00000/6A8B727E-9F49-E811-9014-FA163E8D185B.root'
-				)
+                             '/store/data/Commissioning2018/HLTPhysics3/RAW/v1/000/314/859/00000/2298520E-0046-E811-915D-FA163E108FC3.root'
+			     )
 )
