@@ -1,6 +1,6 @@
 // include files                                                                                                                                                        
 #include <memory>
-
+ 
 // user include files                                                                                                                                                   
 #include "FWCore/Framework/interface/Frameworkfwd.h"
 #include "FWCore/Framework/interface/EDAnalyzer.h"
@@ -48,6 +48,7 @@
 #include "TH1.h"
 #include "TH2.h"
 #include "TH1F.h"
+#include "TH1D.h"
 #include "TH2F.h"
 #include "TProfile.h"
 #include <TROOT.h>
@@ -71,7 +72,10 @@ class phiSym : public edm::EDAnalyzer {
   explicit phiSym (const edm::ParameterSet&);
   ~phiSym();
 
+  void vecfill(map<string, double> &HEtemp, int ieta, int iphi, int depth, double energy);
+
  private:
+
   virtual void beginJob();
   virtual void analyze(const edm::Event&, const edm::EventSetup&);
   virtual void endJob() ;
@@ -86,17 +90,28 @@ class phiSym : public edm::EDAnalyzer {
 
   Int_t runNumb, EventN;
 
-  double e_RecHitHE[14][72], e_RecHitHBp15[72], e_RecHitHBm15[72];
   TH1F *hcounter,*herun, *hlumi, *heventn, *hBX, *hvertex;
   TH1F *hen[26][36][2];
   TH1F *henhbp[16][72][2], *henhbm[16][72][2];
-  TH1F *henhep[14][72][3], *henhem[14][72][3];
+  TH1F *henhep[14][72][7], *henhem[14][72][7];
+  TH1F *henhfwp[18], *henhfwm[18];
+  TH1F *henhbwp[18], *henhbwm[18];
+  TH1F *henhewp[18], *henhewm[18];
+  TH1F *henhfwp_d[18][2], *henhfwm_d[18][2];
+  TH1F *henhbwp_d[18][2], *henhbwm_d[18][2];
+  TH1F *henhewp_d[18][7], *henhewm_d[18][7];
+
+  TH1F *henhep_cl[14][72][3], *henhem_cl[14][72][3];
 
   InputTag HBHENoiseFilterResultLabel_;
   HcalCalibrations calibs_;
 
   edm::EDGetTokenT<HFRecHitCollection> mhfreco;
   edm::EDGetTokenT<HBHERecHitCollection> mhbhereco;
+
+  //tm
+  map<string, vector<double>> HEhit;
+  map<string, TH1F*> histo1F;
 
 };
 
@@ -115,9 +130,22 @@ phiSym::~phiSym()
 
 // member functions                                                                                                                                                             
 
+void phiSym::vecfill(map<string, double> &HEtemp, int ieta, int iphi, int depth, double energy)
+{
+ std::string hname;
+if(ieta>0) hname="E_+"+to_string(abs(ieta))+"_"+to_string(iphi)+"_"+to_string(depth);
+else hname="E_-"+to_string(abs(ieta))+"_"+to_string(iphi)+"_"+to_string(depth);
+ HEtemp[hname]+=energy;
+return;
+}
+
 // ------------ method called to for each event  ------------                                                                                                                   
  void phiSym::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 {
+
+   // tm
+   // double e_RecHitHE[14][72], e_RecHitHBp15[72], e_RecHitHBm15[72];
+   double e_RecHitHBp15[72]{}, e_RecHitHBm15[72]{};
 
    printf("Starting :\n");
    edm::EventID eventId = iEvent.id();
@@ -129,7 +157,7 @@ phiSym::~phiSym()
 
    runNumb=runNumber;
    EventN++;
- cout <<"event number--- "<<EventN<<endl;
+ //cout <<"event number--- "<<EventN<<endl;
 
 
    hcounter->Fill(0); // total                                                                                                                                                  
@@ -151,11 +179,9 @@ phiSym::~phiSym()
 
    double Etot=0;//, enen = 0;                                                                                                                                                  
    int jeta;//,jphi,jdepth;                                                                                                                                                     
-
-
    // ------------ HF -----------                                                                                                                                               
    if (hf_hits_h.isValid()) {
-     cout<<"hf_hits...."<<endl;
+     //cout<<"hf_hits...."<<endl;
      for (HFRecHitCollection::const_iterator hfhit=hf_hits->begin(); hfhit!=hf_hits->end(); hfhit++) {
        int ieta = hfhit->id().ieta();
        int iphi = hfhit->id().iphi();
@@ -163,31 +189,94 @@ phiSym::~phiSym()
 
         double energy = hfhit->energy();
 
+	cout<<"hfhit->flags()"<<hfhit->flags()<<endl;
+	if(hfhit->flags()>=5)continue;
+
        if (ieta>0) jeta = ieta-29;
        else jeta = 13-ieta-29;
-       hen[jeta][(iphi-1)/2][depth-1]->Fill(energy, eventWeight );//****                                                                                                        
+       hen[jeta][(iphi-1)/2][depth-1]->Fill(energy, eventWeight );//****
+  
        if (energy>10) Etot += energy;
+      
+       int wnum = (iphi+1)/4;         
+       if(iphi==71)wnum=0; 
+       if (ieta>0) {
+		henhfwp[wnum]->Fill(energy, eventWeight);      //wedge 
+      		henhfwp_d[wnum][depth-1]->Fill(energy, eventWeight);			
+       }
+       else {
+		henhfwm[wnum]->Fill(energy, eventWeight);
+       	 	henhfwm_d[wnum][depth-1]->Fill(energy, eventWeight);
+	}
      }
-   }
+    }
+
    else printf("No HF RecHits: run= %d  ev= %d :\n",runNumber,eventNumber); // ------------                                                                                     
 
+  map<string,double> HEtemp;
+  
    // ------------ HBHE -----------                                                                                                                                             
 
 
    if (hbhe_hits_h.isValid()) {
-     cout<<"hbhe_hits...."<<endl;
+     //cout<<"hbhe_hits...."<<endl;
      hcounter->Fill(3);
 
      for (HBHERecHitCollection::const_iterator hbhehit=hbhe_hits->begin(); hbhehit!=hbhe_hits->end(); hbhehit++) {
        int ieta = hbhehit->id().ieta();
        int iphi = hbhehit->id().iphi();
        int depth = hbhehit->id().depth();
-        double energy = hbhehit->energy();
+       double energy = hbhehit->energy();
 
-       if (abs(ieta)>16 || (abs(ieta)==16 && depth==3)) { // HE                                                                                                                 
-         if (ieta>0) henhep[ieta-16][iphi-1][depth-1]->Fill(energy, eventWeight);
-         else  henhem[-ieta-16][iphi-1][depth-1]->Fill(energy, eventWeight);
+       cout<<"hbhehit->flags()"<<hbhehit->flags()<<endl;	
+       if(hbhehit->flags()>=27)continue;
+       int wnum = (iphi+1)/4;  // macro region (wedge)
+       if(iphi==71||iphi==72)wnum=0;
+
+      // cout<<"HBHEhit   "<<ieta<<"   "<<iphi<<"   "<<depth<<endl;
+       if (abs(ieta)>16 || (abs(ieta)==16 && depth==4)) { // HE                                                                                                                 
+         if (ieta>0) {
+         henhep[ieta-16][iphi-1][depth-1]->Fill(energy, eventWeight);
+         henhewp[wnum]->Fill(energy, eventWeight);
+         henhewp_d[wnum][depth-1]->Fill(energy, eventWeight);
+	 }       
+         else  {
+         henhem[-ieta-16][iphi-1][depth-1]->Fill(energy, eventWeight);
+         henhewm[wnum]->Fill(energy, eventWeight);
+         henhewm_d[wnum][depth-1]->Fill(energy, eventWeight);
+	 }
          if (energy>4) Etot += energy;
+                                
+         // collapsed depths
+
+	  switch(abs(ieta)){ 
+ 	 	case 16: vecfill(HEtemp,ieta,iphi,3,energy);
+			 break;
+		
+		case 17: vecfill(HEtemp,ieta,iphi,1,energy);
+                	 break;
+		
+                case 26:{
+                	 if(depth==1||depth==2||depth==3)vecfill(HEtemp,ieta,iphi,1,energy);
+			 else vecfill(HEtemp,ieta,iphi,2,energy);
+                	 break;
+                  	}
+                case 27:
+		case 28:{
+                	 if(depth==1||depth==2)vecfill(HEtemp,ieta,iphi,1,energy);
+                	 else if(depth==3)vecfill(HEtemp,ieta,iphi,2,energy);
+			 else vecfill(HEtemp,ieta,iphi,3,energy);
+          		 break;
+			}
+		case 29:{
+			 if(depth==1||depth==2)vecfill(HEtemp,ieta,iphi,1,energy);
+			 else vecfill(HEtemp,ieta,iphi,2,energy);
+			 break;
+			}
+                default: vecfill(HEtemp,ieta,iphi,1,energy);
+	 		 break;
+           }
+         
        }
        else { // HB                                                                                                                                                             
 
@@ -196,17 +285,34 @@ phiSym::~phiSym()
               else  e_RecHitHBp15[iphi-1]+= energy;
          }
          else if (ieta!=-15) henhbm[-ieta-1][iphi-1][depth-1]->Fill(energy, eventWeight);
-         else  e_RecHitHBm15[iphi-1]+= energy;
-          if (energy>4) Etot += energy;
+         else e_RecHitHBm15[iphi-1]+= energy;
+
+         if (ieta>0) {
+	 	henhbwp[wnum]->Fill(energy, eventWeight);
+         	henhbwp_d[wnum][depth-1]->Fill(energy, eventWeight);
+	 }
+	 else {
+		henhbwm[wnum]->Fill(energy, eventWeight);
+		henhbwm_d[wnum][depth-1]->Fill(energy, eventWeight);
+	 }
+           
+         if (energy>4) Etot += energy;
        }
-     }
+      }
 
        for (int j = 0; j<72; j++){   // iphi                                                                                                                                    
          if (e_RecHitHBp15[j]>0.001)     henhbp[14][j][0]->Fill(e_RecHitHBp15[j],eventWeight);
-         if (e_RecHitHBm15[j]>0.001)     henhbm[14][j][0]->Fill(e_RecHitHBm15[j],eventWeight);//}                                                                               
-
+         if (e_RecHitHBm15[j]>0.001)     henhbm[14][j][0]->Fill(e_RecHitHBm15[j],eventWeight);                                                                             
        }
-     }
+
+   for (map<string,double>::iterator it=HEtemp.begin();it!=HEtemp.end(); ++it){
+   string htit=it->first;
+   HEhit[htit].push_back(it->second);
+   }
+
+   HEtemp.clear();
+
+   }
 
    else printf("No RecHits: run= %d  ev= %d :\n",runNumber,eventNumber); // ------------                                                                                        
 
@@ -251,11 +357,11 @@ void phiSym::beginJob() {
   }
 
   TFileDirectory EESpec = fs->mkdir( "eHEspec" );
-  for (int i=0;i<14;i++) for (int j=0;j<72;j++) for (int k=0;k<3;k++) {
-    if (i+16==16 && k<2) continue;
-    if (i+16==17 && k>0) continue;
-    if (i+16>17 && i+16<27 && k==2) continue;
-    if (i+16==29 && k==2) continue;
+  for (int i=0;i<14;i++) for (int j=0;j<72;j++) for (int k=0;k<7;k++) {
+    if (i+16==16 && k!=3) continue;
+    if (i+16==17 && k!=1 && k!=2) continue;
+    if (i+16>17 && i+16<26 && k>5) continue;
+    if (i+16==29 && k>2) continue;
     if (i+16>20 && (j+1)%2==0) continue;
     sprintf(htit,"E_+%d_%d_%d",i+16,j+1,k+1);
     henhep[i][j][k] = EESpec.make< TH1F>(htit,htit,1000,0,250); // E Rec                                                                                                        
@@ -263,12 +369,79 @@ void phiSym::beginJob() {
     henhem[i][j][k] = EESpec.make< TH1F>(htit,htit,1000,0,250);
   }
 
+  TFileDirectory EFweSpec = fs->mkdir( "HFwedge" );
+  for (int i=0; i<18; i++){
+  sprintf(htit,"E_HF+we_%d",i+1);
+  henhfwp[i] = EFweSpec.make< TH1F>(htit,htit,1000,0,250);
+  sprintf(htit,"E_HF-we_%d",i+1);
+  henhfwm[i] = EFweSpec.make< TH1F>(htit,htit,1000,0,250);
+  }
+  
+  TFileDirectory EEweSpec = fs->mkdir( "HEwedge" );
+  for (int i=0; i<18; i++){
+  sprintf(htit,"E_HE+we_%d",i+1);
+  henhewp[i] = EEweSpec.make< TH1F>(htit,htit,1000,0,250);
+  sprintf(htit,"E_HE-we_%d",i+1);
+  henhewm[i] = EEweSpec.make< TH1F>(htit,htit,1000,0,250);
+  }
+ 
+  TFileDirectory EBweSpec = fs->mkdir( "HBwedge" );
+  for (int i=0; i<18; i++){
+  sprintf(htit,"E_HB+we_%d",i+1);
+  henhbwp[i] = EBweSpec.make< TH1F>(htit,htit,1000,0,250);
+  sprintf(htit,"E_HB-we_%d",i+1);
+  henhbwm[i] = EBweSpec.make< TH1F>(htit,htit,1000,0,250);
+  }
+  
+  TFileDirectory EFweSpec_d = fs->mkdir( "HFwedge_d" );
+  for (int i=0; i<18; i++){
+	for(int j=0; j<2; j++){
+  sprintf(htit,"E_HF+we_%d_%d",i+1,j+1);
+  henhfwp_d[i][j] = EFweSpec_d.make< TH1F>(htit,htit,1000,0,250);
+  sprintf(htit,"E_HF-we_%d_%d",i+1,j+1);
+  henhfwm_d[i][j] = EFweSpec_d.make< TH1F>(htit,htit,1000,0,250);
+	}
+  }
+
+
+  TFileDirectory EEweSpec_d = fs->mkdir( "HEwedge_d" );
+  for (int i=0; i<18; i++){
+  	for(int j=0; j<7; j++){
+  sprintf(htit,"E_HE+we_%d_%d",i+1,j+1);
+  henhewp_d[i][j] = EEweSpec_d.make< TH1F>(htit,htit,1000,0,250);
+  sprintf(htit,"E_HE-we_%d_%d",i+1,j+1);
+  henhewm_d[i][j] = EEweSpec_d.make< TH1F>(htit,htit,1000,0,250);
+  	}
+  }
+
+  TFileDirectory EBweSpec_d = fs->mkdir( "HBwedge_d" );
+  for (int i=0; i<18; i++){
+	for(int j=0; j<2; j++){
+  sprintf(htit,"E_HB+we_%d_%d",i+1,j+1);
+  henhbwp_d[i][j] = EBweSpec_d.make< TH1F>(htit,htit,1000,0,250);
+  sprintf(htit,"E_HB-we_%d_%d",i+1,j+1);
+  henhbwm_d[i][j] = EBweSpec_d.make< TH1F>(htit,htit,1000,0,250);
+  	}
+  }
+
+
   std::cout<<std::endl<<"beginJob: histfile="<<histfile.c_str()<<"  textfile="<<textfile.c_str()<<std::endl;
   return;
 
 }
 
 void phiSym::endJob() {
+
+  TFileDirectory EEcolSpec = fs->mkdir( "HEcollapsed" );
+
+  for (map<string,vector<double>>::iterator it=HEhit.begin();it!=HEhit.end(); ++it){
+       string htit=it->first;
+       histo1F[htit]=EEcolSpec.make< TH1F>(htit.c_str(),htit.c_str(),1000,0,250);
+       for(vector<double>::iterator jt=it->second.begin();jt!=it->second.end(); ++jt){
+        histo1F[htit.c_str()]->Fill(*jt);
+        }
+    }
+  HEhit.clear();
 
   fprintf(tFile,"#RunN %d   Events processed %d\n",runNumb,EventN);
   std::cout<<"endJob: histos processing..."<<std::endl;
