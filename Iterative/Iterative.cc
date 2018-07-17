@@ -14,6 +14,8 @@
 #include <sstream>
 #include <iostream>
 #include <string>
+#include <sys/stat.h>
+ #include <sys/types.h>
 
 //g++ `root-config --cflags` -o Iterative Iterative.cc  `root-config --glibs`
 
@@ -40,9 +42,9 @@ int main(){
   gROOT->ForceStyle();
 
 
-int nIterN=5;
-double Ethr1=4;
-double Ethr2=150;
+int nIterN=2;
+const double Ethr1[]={4,4,4,4,10,10};
+const double Ethr2[]={150,150,100,100,150,150};
 
 char ctit[145];
 
@@ -56,21 +58,22 @@ const int ietaN[] = {14,14,16,16,13,13};
 const int sieta[] = {16,16,1,1,29,29};
 const int iphiN[] = {72,72,72,72,36,36};
 
+int result = mkdir("txtfile", 0777);
+
 sprintf(ctit, "phisym.root");
 TFile *fila = new TFile (ctit);
 cout<<"File= "<<ctit<<endl;
 TH1F *hcounter =   new TH1F(*((TH1F*)fila->Get("phaseHF/hcounter")));
 cout<<"Stat= "<<hcounter->GetBinContent(2)<<endl;
-cout<<"E within: "<<Ethr1<<" - "<<Ethr2<<endl;
 
 TFile *histf = new TFile("itercali.root","recreate");
 
 //booking histgrams
 std::map<std::string, TDirectory*> cdDet;
 
-for(int i=0;i<6;i++){
-	for(int j=1;j<4;j++){
-		if(i>1&&j==3)continue;
+for(int i=1;i<2;i++){
+	for(int j=1;j<8;j++){
+		if(i>1&&j>2)continue;
 	    	std::string hname=det[i]+"_depth"+std::to_string(j);
 	  	cdDet[hname] = histf->mkdir(hname.c_str());
         	cdDet[hname]->cd();
@@ -88,71 +91,48 @@ for(int i=0;i<6;i++){
 
 //loop over all subdetectors and depths
 
-for(int i=0;i<1;i++){
+for(int i=1;i<2;i++){
+	cout<<"E within: "<<Ethr1[i]<<" - "<<Ethr2[i]<<endl;
+	std::map<std::string, TH1F*> hdatP;
+        std::map<std::string, TH1F*> hdatPx;
+	
+	std::string dir;
+	switch (i) {
+                        case 0:
+                        case 1: dir="phaseHF/eHEspec";
+                                break;
+                        case 2:
+                        case 3: dir="phaseHF/eHBspec";
+                                break;
+                        case 4:
+                        case 5: dir="phaseHF/espec";
+                                break;
+                }
+	TDirectory *fs=(TDirectory*)fila->Get(dir.c_str());
+        TIter next(fs->GetListOfKeys());
+        TKey *key;
+	while ((key = (TKey*)next())) {
+	string pname = key->GetName();
+	//if(pname=="E_-15_7_1")continue;
+	TH1F *ff=(TH1F*)key->ReadObj();
+                        if(ff->GetEntries()==0)continue;
+                        delete ff;
 
-	for(int j=1;j<4;j++){
+                        hdatPx[pname] = (TH1F*)key->ReadObj();
+                        hdatPx[pname] -> SetAxisRange(Ethr1[i],Ethr2[i]);
+                        hdatP[pname] = new TH1F(pname.c_str(),pname.c_str(),10000,0,250);
 
-		if(i>1&&j==3)continue;
-		std::map<std::string, TH1F*> hdatP;
-		std::map<std::string, TH1F*> hdatPx;		
+        }
 
-		std::string dir;
+
+	for(int j=1;j<8;j++){
+
+		if(i>1&&j>2)continue;
 	
 		std::string hname = "E0_"+det[i]+std::to_string(j);
 		std::string cname = "corr_"+det[i]+std::to_string(j);
                 std::string ename = "E_"+det[i]+std::to_string(j);
 
-		
-		switch (i) {
-			case 0:
-			case 1: dir="phaseHF/HEcollapsed";
-				break;
-			case 2:
-			case 3: dir="phaseHF/eHBspec";
-				break;
-			case 4:
-			case 5: dir="phaseHF/espec";
-				break;
-		}	
-
-		TDirectory *fs=(TDirectory*)fila->Get(dir.c_str());
-		TIter next(fs->GetListOfKeys());
-		TKey *key;
-		while ((key = (TKey*)next())) {
-			TClass *cl = gROOT->GetClass(key->GetClassName());
-			/*if (!cl->InheritsFrom("TH1F")) {
-				std::cout<<"Not a histogram"<<std::endl;;
-				continue;
-			}*/
-			string pname = key->GetName();
-			/*string pname_tmp = pname;
-			for ( std::string::iterator it=pname_tmp.begin(); it!=pname_tmp.end(); ++it){
-  			 //cout << *it<<endl;
-   				 if(!isdigit(*it)){
-       				 *it =' ';
-       				 }
-   			}	
-
-  			Int_t ieta,iphi,depth;
-			stringstream ss(pname_tmp);
-			ss>>ieta>>iphi>>depth;	
-
-			cout<<"ieta  "<<ieta<<"iphi   "<<iphi<<"depth   "<<depth<<endl;
-			
-			if(i==0||i==2||i==4){if(pname[2]!='+')continue;}
-			else {if(pname[2]!='-')continue;}			
-			if(j!=depth)continue;  //depths
-			if(ieta==29)continue;// no calibration for ieta 29
-			*/
-
-
-			if(pname=="E_+17_58_1")continue;
-			hdatP[pname] = new TH1F(pname.c_str(),pname.c_str(),10000,0,250);
-			hdatPx[pname] =	(TH1F*)key->ReadObj();
-			hdatPx[pname] -> SetAxisRange(Ethr1,Ethr2);
-
-				
-		}
 
 		for(int ii=0;ii<ietaN[i];ii++){
 
@@ -252,7 +232,7 @@ for(int i=0;i<1;i++){
         				 }
         				 tt->Delete();
 
-					 hdatP[pname]->SetAxisRange(Ethr1,Ethr2);
+					 hdatP[pname]->SetAxisRange(Ethr1[i],Ethr2[i]);
         				 rLP = hdatP[pname]->Integral()*hdatP[pname]->GetMean();
         				 dcorrL=(rLP-mLE)/mLE; if (fabs(dcorrL)>0.7) dcorrL=0.7*dcorrL/fabs(dcorrL);
 					 if (rLP>0) drLP=sqrt(pow(hdatP[pname]->GetMeanError()/hdatP[pname]->GetMean(),2)+1.f/hdatP[pname]->Integral()+pow(dcorrL/(1.0+sqrt((float) nIter)),2));
@@ -298,6 +278,7 @@ for(int i=0;i<1;i++){
 
 		}		
 
+
 	FILE *ft1;
 	std::string txtf="txtfile/"+det[i]+std::to_string(j)+".txt"; 
   	if ((ft1 = fopen(txtf.c_str(),"w"))==NULL){               // Open new file
@@ -334,6 +315,9 @@ for(int i=0;i<1;i++){
   		ccc[ii]->Update();
   		ccc[ii]->Write();	
 
+		delete ccc[ii];
+		delete hprcL[ii];
+
 		sprintf(ctit,"%s_E0_%d_%d;i#phi;",det[i].c_str(),ieta,j);
     		if(ieta>0)hprL0[ii] = histo2F[hname]->ProjectionY(ctit,ii+1,ii+1);
    		else hprL0[ii] = histo2F[hname]->ProjectionY(ctit,ietaN[i]-ii,ietaN[i]-ii);
@@ -360,6 +344,10 @@ for(int i=0;i<1;i++){
 		cpr[ii]->Update();
 		cpr[ii]->Write();
 
+		delete cpr[ii];
+		delete hprL[ii];
+		delete hprL0[ii];
+
 		for (int ll=0;ll<72;ll++) {
 			Int_t iphi=ll+1;
 	        	Int_t jj=ll;
@@ -380,6 +368,7 @@ for(int i=0;i<1;i++){
 			corrL=histo2F[cname]->GetBinContent(ietaN[i]-ii,jj+1);
                      	dcorrL=histo2F[cname]->GetBinError(ietaN[i]-ii,jj+1);	
 			}
+			if(corrL==0)continue;
 			std::string crname="hcorr_"+det[i]+std::to_string(j);
                 	histo1F[crname]->Fill(corrL);
 			noff++;
@@ -425,15 +414,17 @@ for(int i=0;i<1;i++){
 	delete chisto2Fc;
 	delete chisto1F;	
 
+	}
+
 	hdatP.clear();
 	hdatPx.clear();
-
- 	}
-
       }
 
-
+histo2F.clear();
+histo1F.clear();
+gROOT->Reset();
 cout<<"finish  ---------"<<endl;
+
 
 return 0;
 
